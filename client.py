@@ -14,8 +14,15 @@ if len(addresses) == 0:
     print("Cannot find ip for local network")
     exit(1)
 
-ip_address = "26.116.186.114"
+FORMAT = "utf-8"
+ip_address = "192.168.1.100"
 port = 5000
 
 client = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-client.sendto(b"Halo", (ip_address, port))
+
+print(f"[Client starting] sending to {ip_address}:{port}")
+print("Enter messages and send them. Type '\\exit' to exit")
+message = input(">> ")
+while message != "\\exit":
+    client.sendto(message.encode(), (ip_address, port))
+    message = input(">> ")
