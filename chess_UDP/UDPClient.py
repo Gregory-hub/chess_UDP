@@ -20,10 +20,16 @@ class UDPClient:
         self.terminate_wait_for_opponent = False
         self.thread_wait_for_connect_reply = None
         self.terminate_wait_for_connect_reply = False
+        self.thread_receive = None
+        self.terminate_receive = False
+        self.shut_client_down = False
         self.addresses = None
         self.__init_addresses()
 
         self.sock = None
+
+        self.message_received = ""
+        self.message_read = True
 
 
     def __init_addresses(self) -> None:
@@ -41,10 +47,9 @@ class UDPClient:
 
     def start(self, ip_address: str = None, port: int = None) -> None:
         self.__initialize_socket(ip_address, port)
-        self.__handle_user_input()
 
 
-    def initialize_connection(self, opponent_ip: str, opponent_port: int = None) -> None:
+    def try_to_connect(self, opponent_ip: str, opponent_port: int = None) -> None:
         if opponent_port is None:
             opponent_port = self.DEFAULT_PORT
 
@@ -52,15 +57,29 @@ class UDPClient:
         self.sock.sendto("/connect".encode(), (opponent_ip, opponent_port))
 
         timeout_seconds = 30
-        self.thread_wait_for_connect_reply = threading.Thread(target=self.__wait_for_connect_reply, args=[opponent_ip, opponent_port, timeout_seconds], daemon=True)
+        self.thread_wait_for_connect_reply = threading.Thread(target=self.__wait_for_connect_reply, args=[opponent_ip, opponent_port, timeout_seconds])
         self.thread_wait_for_connect_reply.start()
 
 
-    def create_game(self) -> None:
-        print("[Game created]")
-        self.thread_wait_for_opponent = threading.Thread(target=self.__wait_for_opponent, daemon=True)
+    def wait_for_connection(self, answer_message: str = None) -> None:
+        if self.connected:
+            print("[Opponent connected]")
+            return
+        self.thread_wait_for_opponent = threading.Thread(target=self.__wait_for_opponent, args=[answer_message])
         self.thread_wait_for_opponent.start()
-        print("[Waiting for opponent]...")
+        print("[Waiting for opponent to connect]...")
+
+
+    def send_to_opponent(self, data: str) -> None:
+        print(f"[Send] '{data}' to {self.opponent_ip}:{self.opponent_port}")
+        if self.connected:
+            self.sock.sendto(data.encode(), (self.opponent_ip, self.opponent_port))
+
+
+    def start_receiving(self) -> None:
+        print("[Starting receiving incoming data]")
+        self.thread_receive = threading.Thread(target=self.__receive)
+        self.thread_receive.start()
 
 
     def restart(self, ip_address: str = None, port: int = None) -> None:
@@ -76,12 +95,30 @@ class UDPClient:
         if self.thread_wait_for_connect_reply is not None:
             self.terminate_wait_for_connect_reply = True
             self.thread_wait_for_connect_reply.join()
+        if self.thread_receive is not None:
+            self.terminate_receive = True
+            self.thread_receive.join()
         self.sock.shutdown(socket.SHUT_RDWR)
         print(f"[App shut down]")
+        self.shut_client_down = True
+
+
+    def extract_ip_and_port(self, address_port_str: str) -> tuple:
+        try:
+            ip, port = address_port_str.split(":")
+        except ValueError:
+            return None, None
+
+        if not self.__address_is_valid(ip) or not self.__port_is_valid(port):
+            return None, None
+
+        port = int(port)
+
+        return ip, port
 
 
     def __start(self, ip_address: str = None, port: int = None) -> None:
-        print(f"[App starting] at {ip_address}:{port}")
+        print(f"[App starting] at {ip_address}:{port}...")
         self.__initialize_socket(ip_address, port)
         print(f"[App started] at {ip_address}:{port}")
 
@@ -117,9 +154,15 @@ class UDPClient:
                 data, addr = self.sock.recvfrom(self.BUFFER_SIZE)
             except BlockingIOError:
                 continue
+            except ConnectionResetError as e:
+                print(e)
+                continue
 
-            if data.decode() == "/accept" and addr[0] == opponent_ip and addr[1] == opponent_port:
+            message = data.decode()
+            if message.startswith("/accept") and addr[0] == opponent_ip and addr[1] == opponent_port:
                 self.__connect(opponent_ip, opponent_port)
+                self.message_received = ' '.join(message.split(' ')[1:])
+                self.message_read = False
                 break
 
             now = time.time()
@@ -132,17 +175,10 @@ class UDPClient:
         print("[Stopping thread] __wait_for_connect_reply")
 
 
-    def stop_waiting_for_connect_reply(self):
-        self.terminate_wait_for_connect_reply = True
-
-
-    def stop_waiting_for_opponent(self):
-        self.terminate_wait_for_opponent = True
-
-
-    def __wait_for_opponent(self) -> None:
+    def __wait_for_opponent(self, answer_message: str) -> None:
         # stalls the program
         print("[Starting thread] __wait_for_opponent")
+        print("Answer message =", answer_message)
         self.terminate_wait_for_opponent = False
         while not self.terminate_wait_for_opponent:
             try:
@@ -151,13 +187,32 @@ class UDPClient:
                 continue
             if data.decode(self.DATA_FORMAT) == "/connect":
                 self.__connect(addr[0], addr[1])
-                self.sock.sendto("/accept".encode(), (self.opponent_ip, self.opponent_port))
+                self.sock.sendto(("/accept " + answer_message).encode(), (self.opponent_ip, self.opponent_port))
                 break
 
         self.thread_wait_for_opponent = None
         self.terminate_wait_for_opponent = False
 
         print("[Stopping thread] __wait_for_opponent")
+
+
+    def __receive(self) -> None:
+        # stalls the program
+        print("[Starting thread] __receive")
+        self.terminate_receive = False
+
+        while not self.terminate_receive:
+            try:
+                data, addr = self.sock.recvfrom(self.BUFFER_SIZE)
+            except BlockingIOError:
+                continue
+
+            self.message_read = False
+            self.message_received = data.decode()
+
+        self.thread_receive = None
+        self.terminate_receive = False
+        print("[Stopping thread] __receive")
 
 
     def __connect(self, opponent_ip: str, opponent_port: int) -> None:
@@ -167,49 +222,25 @@ class UDPClient:
         print(f"[Connected] to {self.opponent_ip}:{self.opponent_port}")
 
 
-    def __handle_user_input(self):
-        # stalls the program
-        text = f"[App is running] at {self.ip}:{self.port}\n"
-        text += "To choose another ip address type '/address'\nTo choose another port type '/port'\n"
-        text += "To create a game type '/create'\nTo connect to a game type '/connect'\nTo exit type '/exit'"
-        print(text)
+    def __address_is_valid(self, ip_address: str) -> bool:
+        try:
+            ip_bytes = list(map(int, ip_address.split(".")))
+        except ValueError:
+            return False
+        if len(ip_bytes) != 4:
+            return False
+        for b in ip_bytes:
+            if not 0 <= b <= 255:
+                return False
 
-        input_str = ""
-        while True:
-            try:
-                input_str = input(">> ")
-            except KeyboardInterrupt:
-                print()
-                self.shut_down()
-                return
-
-            match input_str:
-                case "/address":
-                    for i in range(len(self.addresses)):
-                        address = self.addresses[i]
-                        print(f"{i}: {address}")
-                    index = int(input("Choose address entry\n>> "))
-                    new_address = self.addresses[index]
-                    self.restart(ip_address=new_address, port=self.port)
-
-                case "/port":
-                    new_port = int(input("Enter port number\n>> "))
-                    self.restart(ip_address=self.ip, port=new_port)
-
-                case "/create":
-                    self.create_game()
-                    self.thread_wait_for_opponent.join()
-
-                case "/connect":
-                    opponent_ip = input("Enter opponent ip address\n>> ")
-                    self.initialize_connection(opponent_ip)
-                    self.thread_wait_for_connect_reply.join()
-
-                case "/exit":
-                    self.shut_down()
-                    return
+        return True
 
 
-if __name__ == "__main__":
-    app = UDPClient()
-    app.start()
+    def __port_is_valid(self, port: str) -> bool:
+        try:
+            port = int(port)
+        except ValueError:
+            return False
+        if (port < 0 or port > 65535):
+            return False
+        return True
