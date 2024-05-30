@@ -46,7 +46,7 @@ class UDPClient:
 
 
     def start(self, ip_address: str = None, port: int = None) -> None:
-        self.__initialize_socket(ip_address, port)
+        self.__start(ip_address, port)
 
 
     def try_to_connect(self, opponent_ip: str, opponent_port: int = None) -> None:
@@ -118,9 +118,9 @@ class UDPClient:
 
 
     def __start(self, ip_address: str = None, port: int = None) -> None:
-        print(f"[App starting] at {ip_address}:{port}...")
+        print(f"[App starting] at {ip_address if ip_address is not None else "{Default}"}:{port if port is not None else "{Default}"}...")
         self.__initialize_socket(ip_address, port)
-        print(f"[App started] at {ip_address}:{port}")
+        print(f"[App started] at {self.ip}:{self.port}")
 
 
     def __initialize_socket(self, ip_address: str = None, port: int = None) -> None:
@@ -134,11 +134,21 @@ class UDPClient:
         elif port < 0 or port > 65535:
             raise ValueError("Invalid port number")
 
+        self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)    # Internet, UDP
+        while True:
+            try:
+                self.sock.bind((ip_address, port))
+                break
+            except (PermissionError, OSError):
+                port += 1
+                if port > 65535:
+                    port = 0
+                if port == self.DEFAULT_PORT:
+                    raise PermissionError("No ports available")
+
         self.ip = ip_address
         self.port = port
 
-        self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)    # Internet, UDP
-        self.sock.bind((ip_address, port))
         self.sock.settimeout(0)
 
 
