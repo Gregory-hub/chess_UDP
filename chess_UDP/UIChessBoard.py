@@ -6,14 +6,16 @@ from .UIChessPiece import UIChessPiece
 
 
 class UIChessBoard:
-    def __init__(self, master, color, size=8, padding=20):
+    def __init__(self, master: tk.Tk, color: chess.Color, get_possible_moves_fn: callable, size: int = 8, padding: int = 20):
         self.master = master
         self.size = size
         self.padding = padding
         self.player_color = color
-        self.player_colors = ["light goldenrod", "brown"]
+        self.turn = chess.WHITE
+        self.board_colors = ["light goldenrod", "brown"]
         self.sq_outline_color = "dark gray"
         self.sq_marker_color = "dark gray"
+        self.oval_color = "dark gray"
 
         self.PIECE_SYMBOLS = {
             "r":"♖",
@@ -34,9 +36,13 @@ class UIChessBoard:
         self.board.pack(fill=tk.BOTH, expand=True)
         self.board.bind("<Configure>", self.refresh_board)
         self.square_size = 0
+        self.id_highlighted_rect = None
+        self.ids_highlighted_ovals = []
 
         self.position = [[' ' for j in range (self.size)] for i in range (self.size)]
         self.selected_piece_coords = [None, None]
+
+        self.get_possible_moves_fn = get_possible_moves_fn
 
         self.refresh_board()
 
@@ -44,13 +50,13 @@ class UIChessBoard:
     def create_board(self) -> None:
         if self.square_size == 0:
             return
-        self.board.bind("<Button-1>", self.highlight_square)
+        self.board.bind("<Button-1>", self.process_click_square)
         x_offset = (self.master.winfo_width() - self.size * self.square_size) // 2
         y_offset = (self.master.winfo_height() - self.size * self.square_size) // 2
 
         for row in range(self.size):
             for col in range(self.size):
-                color = self.player_colors[(row + col) % 2]
+                color = self.board_colors[(row + col) % 2]
                 x1 = x_offset + col * self.square_size
                 y1 = y_offset + row * self.square_size
                 x2 = x1 + self.square_size
@@ -69,7 +75,10 @@ class UIChessBoard:
 
         for i in range(self.size):
             for j in range(self.size):
-                piece = self.position[i][j]
+                if self.player_color == chess.BLACK:
+                    piece = self.position[i][j]
+                else:
+                    piece = self.position[7 - i][7 - j]
                 if piece != ' ':
                     chess_piece = UIChessPiece(self.board, i, j, piece, font_size)
                     chess_piece.draw_piece(self.square_size, x_offset, y_offset)
@@ -100,16 +109,27 @@ class UIChessBoard:
         self.draw_pieces()
 
 
-    def highlight_square(self, event) -> None:
-        if hasattr(self, 'id'):
-            self.board.delete(self.id)
+    def process_click_square(self, event) -> None:
+        if self.id_highlighted_rect is not None:
+            self.board.delete(self.id_highlighted_rect)
+            self.id_highlighted_rect = None
+
+        if len(self.ids_highlighted_ovals) > 0:
+            for id in self.ids_highlighted_ovals:
+                self.board.delete(id)
+            self.ids_highlighted_ovals.clear()
 
         x_offset = (self.master.winfo_width() - self.size * self.square_size) // 2
         y_offset = (self.master.winfo_height() - self.size * self.square_size) // 2
-        # font_size = min(self.square_size // 2, 32)
         col = (event.x - x_offset) // self.square_size
         row = (event.y - y_offset) // self.square_size
 
+        self.highlight_square(x_offset, y_offset, row, col)
+        if self.turn == self.player_color:
+            self.mark_possible_moves(x_offset, y_offset, row, col)
+
+
+    def highlight_square(self, x_offset, y_offset, row, col) -> None:
         if not (0 <= col < self.size and 0 <= row < self.size):
             return
 
@@ -118,28 +138,36 @@ class UIChessBoard:
         x2 = x1 + self.square_size
         y2 = y1 + self.square_size
 
-        if self.selected_piece_coords != [col, row]:
-            self.id = self.board.create_rectangle(x1, y1, x2, y2, outline=self.sq_outline_color, width=4)
-            self.selected_piece_coords = [col, row]
+        if self.selected_piece_coords != [row, col]:
+            self.draw_rect(x1, y1, x2, y2)
+            self.selected_piece_coords = [row, col]
         else:
             self.selected_piece_coords = [None, None]
-        # selected_piece = None
-        # for piece in self.board.find_all():
-        #     if self.board.type(piece) == "text":
-        #         piece_coords = self.board.coords(piece)
-        #         piece_col = (piece_coords[0] - x_offset) // self.square_size
-        #         piece_row = (piece_coords[1] - y_offset) // self.square_size
-        #         if piece_row == row and piece_col == col:
-        #             selected_piece = piece
-        #             break
-        # self.board.bind("<Button-1>", self.highlight_square)
-        # if selected_piece:
-        #     self.board.delete("possible_moves")
 
-        #     possible_moves = self.get_possible_moves(self.size)
-        #     for move in possible_moves:
-        #         move_col = x_offset + move[1] * self.square_size + self.square_size // 2
-        #         move_row = y_offset + move[0] * self.square_size + self.square_size // 2
-        #         self.board.create_oval(move_col - self.square_size // 4, move_row - self.square_size // 4,
-        #                                move_col + self.square_size // 4, move_row + self.square_size // 4,
-        #                                outline='blue', tags='possible_moves')
+
+    def mark_possible_moves(self, x_offset, y_offset, row, col) -> None:
+        if self.player_color == chess.WHITE:
+            row = 7 - row
+            col = 7 - col
+        possible_moves = self.get_possible_moves_fn(row, col)
+        print(possible_moves)
+
+        for row, col in possible_moves:
+            if self.player_color == chess.WHITE:
+                row = 7 - row
+                col = 7 - col
+            x1 = x_offset + col * self.square_size
+            y1 = y_offset + row * self.square_size
+            x2 = x1 + self.square_size
+            y2 = y1 + self.square_size
+            self.draw_oval(x1, y1, x2, y2)
+
+
+    def draw_rect(self, x1: int, y1: int, x2: int, y2: int) -> None:
+        self.id_highlighted_rect = self.board.create_rectangle(x1, y1, x2, y2, outline=self.sq_outline_color, width=4)
+
+
+    def draw_oval(self, x1: int, y1: int, x2: int, y2: int) -> None:
+        self.ids_highlighted_ovals.append(self.board.create_oval(x1 + self.square_size // 4, y1 + self.square_size // 4, 
+                                                          x2 - self.square_size // 4, y2 - self.square_size // 4,
+                                                          outline=self.oval_color, width=2))

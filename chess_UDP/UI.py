@@ -1,20 +1,28 @@
 import tkinter as tk
 
+import chess
+
 from .UIChessBoard import UIChessBoard
 
 
 class UI:
-    def __init__(self, create_game_command: callable, connect_command: callable):
+    def __init__(
+            self, create_game_command: callable,
+            connect_command: callable,
+            get_possible_moves_fn: callable
+        ):
+
         self.widgets = []
         self.main_window = tk.Tk()
         self.main_window.geometry("800x800")
         self.main_window.state("zoomed")
         self.main_window.title("Main Window")
-        self.color = ""
         self.ui_chessboard = None
 
         self.create_game_command = create_game_command
         self.connect_command = connect_command
+
+        self.get_possible_moves_fn = get_possible_moves_fn
 
 
     def show_main_window(self) -> None:
@@ -44,9 +52,14 @@ class UI:
         self.widgets.append(create_game_button)
 
 
-    def show_game_window(self, fen: str) -> None:
+    def show_game_window(self, fen: str, player_color: chess.Color) -> None:
         self.clear()
-        self.ui_chessboard = UIChessBoard(self.main_window, padding=30, color=self.color)
+        self.ui_chessboard = UIChessBoard(
+            self.main_window, 
+            get_possible_moves_fn=self.get_possible_moves_fn, 
+            padding=30, 
+            color=player_color
+        )
         self.ui_chessboard.update_position(fen)
         self.ui_chessboard.draw_pieces()
 

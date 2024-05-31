@@ -111,8 +111,9 @@ class Game:
     #     self.player_color = chess.WHITE if input_str == 'w' else chess.BLACK
 
 
-    def create_game(self) -> None:
+    def create_game(self, player_color: chess.Color) -> None:
         self.chessboard = chess.Board()
+        self.player_color = player_color
 
 
     def connect_to_game(self, color: str) -> None:
