@@ -6,7 +6,8 @@ from .UIChessPiece import UIChessPiece
 
 
 class UIChessBoard:
-    def __init__(self, master: tk.Tk, color: chess.Color, get_possible_moves_fn: callable, size: int = 8, padding: int = 20):
+    def __init__(self, master: tk.Tk, app, color: chess.Color, size: int = 8, padding: int = 20):
+        self.app = app
         self.master = master
         self.size = size
         self.padding = padding
@@ -41,8 +42,6 @@ class UIChessBoard:
 
         self.position = [[' ' for j in range (self.size)] for i in range (self.size)]
         self.selected_piece_coords = [None, None]
-
-        self.get_possible_moves_fn = get_possible_moves_fn
 
         self.refresh_board()
 
@@ -124,33 +123,31 @@ class UIChessBoard:
         col = (event.x - x_offset) // self.square_size
         row = (event.y - y_offset) // self.square_size
 
-        self.highlight_square(x_offset, y_offset, row, col)
-        if self.turn == self.player_color:
-            self.mark_possible_moves(x_offset, y_offset, row, col)
-
-
-    def highlight_square(self, x_offset, y_offset, row, col) -> None:
         if not (0 <= col < self.size and 0 <= row < self.size):
             return
 
+        if self.selected_piece_coords != [row, col]:
+            self.selected_piece_coords = [row, col]
+            self.highlight_square(x_offset, y_offset, row, col)
+            if self.turn == self.player_color:
+                self.mark_possible_moves(x_offset, y_offset, row, col)
+        else:
+            self.selected_piece_coords = [None, None]
+
+
+    def highlight_square(self, x_offset, y_offset, row, col) -> None:
         x1 = x_offset + col * self.square_size
         y1 = y_offset + row * self.square_size
         x2 = x1 + self.square_size
         y2 = y1 + self.square_size
-
-        if self.selected_piece_coords != [row, col]:
-            self.draw_rect(x1, y1, x2, y2)
-            self.selected_piece_coords = [row, col]
-        else:
-            self.selected_piece_coords = [None, None]
+        self.draw_rect(x1, y1, x2, y2)
 
 
     def mark_possible_moves(self, x_offset, y_offset, row, col) -> None:
         if self.player_color == chess.WHITE:
             row = 7 - row
             col = 7 - col
-        possible_moves = self.get_possible_moves_fn(row, col)
-        print(possible_moves)
+        possible_moves = self.app.get_possible_moves(row, col)
 
         for row, col in possible_moves:
             if self.player_color == chess.WHITE:

@@ -13,7 +13,6 @@ class UIChessPiece:
         x = x_offset + self.col * square_size + square_size // 2
         y = y_offset + self.row * square_size + square_size // 2
         self.font = ("Arial", self.font_size)
-        print("Draw piece:", square_size, x_offset, y_offset, self.font, self.font_size, self.row, self.col, self.piece)
         self.canvas.create_text(x, y, text=self.piece, font=self.font)
 
 
