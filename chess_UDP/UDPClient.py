@@ -4,6 +4,8 @@ import time
 
 import netifaces
 
+from .debug import Debug
+
 
 class UDPClient:
     def __init__(self):
@@ -27,6 +29,8 @@ class UDPClient:
         self.shut_client_down = False
         self.addresses = None
         self.__init_addresses()
+
+        self.debug = Debug()
 
         self.sock = None
 
@@ -57,7 +61,7 @@ class UDPClient:
         if opponent_port is None:
             opponent_port = self.DEFAULT_PORT
 
-        print(f"[Initialize connection] '/connect' sent to {opponent_ip, opponent_port}")
+        self.debug.print(f"[Initialize connection] '/connect' sent to {opponent_ip, opponent_port}")
         self.sock.sendto("/connect".encode(), (opponent_ip, opponent_port))
 
         timeout_seconds = 30
@@ -67,27 +71,27 @@ class UDPClient:
 
     def wait_for_connection(self, answer_message: str = None) -> None:
         if self.connected:
-            print("[Opponent connected]")
+            self.debug.print("[Opponent connected]")
             return
         self.thread_wait_for_opponent = threading.Thread(target=self.__wait_for_opponent, args=[answer_message])
         self.thread_wait_for_opponent.start()
-        print("[Waiting for opponent to connect]...")
+        self.debug.print("[Waiting for opponent to connect]...")
 
 
     def wait_for_game_to_start(self, command: callable) -> None:
         self.thread_wait_for_start_game = threading.Thread(target=self.__wait_for_start_game, args=[command])
         self.thread_wait_for_start_game.start()
-        print("[Waiting for game to start]...")
+        self.debug.print("[Waiting for game to start]...")
 
 
     def send_to_opponent(self, data: str) -> None:
-        print(f"[Send] '{data}' to {self.opponent_ip}:{self.opponent_port}")
+        self.debug.print(f"[Send] '{data}' to {self.opponent_ip}:{self.opponent_port}")
         if self.connected:
             self.sock.sendto(data.encode(), (self.opponent_ip, self.opponent_port))
 
 
     def start_receiving(self, on_receive: callable = None) -> None:
-        print("[Starting receiving incoming data]")
+        self.debug.print("[Starting receiving incoming data]")
         self.thread_receive = threading.Thread(target=self.__receive, args=[on_receive])
         self.thread_receive.start()
 
@@ -106,7 +110,7 @@ class UDPClient:
 
 
     def shut_down(self) -> None:
-        print(f"[App shutting down]...")
+        self.debug.print(f"[App shutting down]...")
         if self.thread_wait_for_opponent is not None:
             self.terminate_wait_for_opponent = True
             self.thread_wait_for_opponent.join()
@@ -119,7 +123,7 @@ class UDPClient:
         if self.sock:
             self.sock.close()
             self.sock = None
-        print(f"[App shut down]")
+        self.debug.print(f"[App shut down]")
         self.shut_client_down = True
 
 
@@ -180,9 +184,9 @@ class UDPClient:
 
 
     def __start(self, ip_address: str = None, port: int = None) -> None:
-        print(f"[App starting] at {ip_address if ip_address is not None else '{Default}'}:{port if port is not None else '{Default}'}...")
+        self.debug.print(f"[App starting] at {ip_address if ip_address is not None else '{Default}'}:{port if port is not None else '{Default}'}...")
         self.__initialize_socket(ip_address, port)
-        print(f"[App started] at {self.ip}:{self.port}")
+        self.debug.print(f"[App started] at {self.ip}:{self.port}")
 
 
     def __initialize_socket(self, ip_address: str = None, port: int = None) -> None:
@@ -206,7 +210,7 @@ class UDPClient:
 
     def __wait_for_connect_reply(self, opponent_ip: str, opponent_port: int, timeout_seconds: float = None) -> None:
         # stalls the program
-        print("[Starting thread] __wait_for_connect_reply")
+        self.debug.print("[Starting thread] __wait_for_connect_reply")
         self.terminate_wait_for_connect_reply = False
 
         start = time.time()
@@ -217,7 +221,7 @@ class UDPClient:
             except BlockingIOError:
                 continue
             except ConnectionResetError as e:
-                print(e)
+                self.debug.print(e)
                 continue
 
             message = data.decode()
@@ -229,16 +233,16 @@ class UDPClient:
             now = time.time()
 
         if not self.connected and not self.terminate_wait_for_connect_reply:
-            print(f"[Warning] Cannot connect to {opponent_ip}:{opponent_port}")
+            self.debug.print(f"[Warning] Cannot connect to {opponent_ip}:{opponent_port}")
 
         self.thread_wait_for_connect_reply = None
         self.terminate_wait_for_connect_reply = False
-        print("[Stopping thread] __wait_for_connect_reply")
+        self.debug.print("[Stopping thread] __wait_for_connect_reply")
 
 
     def __wait_for_start_game(self, command: callable) -> None:
         # stalls the program
-        print("[Starting thread] __wait_for_start_game")
+        self.debug.print("[Starting thread] __wait_for_start_game")
         self.terminate_wait_for_connect_reply = False
     
         while not self.terminate_wait_for_start_game:
@@ -247,7 +251,7 @@ class UDPClient:
             except BlockingIOError:
                 continue
             except ConnectionResetError as e:
-                print(e)
+                self.debug.print(e)
                 continue
 
             message = data.decode()
@@ -257,13 +261,13 @@ class UDPClient:
 
         self.thread_wait_for_start_game = None
         self.terminate_wait_for_start_game = False
-        print("[Stopping thread] __wait_for_start_game")
+        self.debug.print("[Stopping thread] __wait_for_start_game")
 
 
     def __wait_for_opponent(self, answer_message: str) -> None:
         # stalls the program
-        print("[Starting thread] __wait_for_opponent")
-        print("Answer message =", answer_message)
+        self.debug.print("[Starting thread] __wait_for_opponent")
+        self.debug.print("Answer message =", answer_message)
         self.terminate_wait_for_opponent = False
         while not self.terminate_wait_for_opponent:
             try:
@@ -278,12 +282,12 @@ class UDPClient:
         self.thread_wait_for_opponent = None
         self.terminate_wait_for_opponent = False
 
-        print("[Stopping thread] __wait_for_opponent")
+        self.debug.print("[Stopping thread] __wait_for_opponent")
 
 
     def __receive(self, on_receive: callable = None) -> None:
         # stalls the program
-        print("[Starting thread] __receive")
+        self.debug.print("[Starting thread] __receive")
         self.terminate_receive = False
 
         while not self.terminate_receive:
@@ -292,7 +296,7 @@ class UDPClient:
                 message = data.decode()
                 self.__last_message_received = message
                 self.message_read = False
-                print(f"[Message received] '{message}'")
+                self.debug.print(f"[Message received] '{message}'")
                 if on_receive:
                     on_receive(message, addr[0], addr[1])
             except BlockingIOError:
@@ -300,7 +304,7 @@ class UDPClient:
 
         self.thread_receive = None
         self.terminate_receive = False
-        print("[Stopping thread] __receive")
+        self.debug.print("[Stopping thread] __receive")
 
 
     def __connect(self, opponent_ip: str, opponent_port: int) -> None:
@@ -310,4 +314,4 @@ class UDPClient:
         if self.on_connect:
             self.on_connect()
             self.on_connect = None
-        print(f"[Connected] to {self.opponent_ip}:{self.opponent_port}")
+        self.debug.print(f"[Connected] to {self.opponent_ip}:{self.opponent_port}")

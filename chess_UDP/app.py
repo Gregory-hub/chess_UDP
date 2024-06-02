@@ -13,6 +13,14 @@ class App:
         self.game = Game(self.on_connect, self.on_opponent_connect, self.on_receive_start_command, self.on_receive_move)
 
 
+    def disable_console_info(self) -> None:
+        self.game.udp_client.debug.enabled = False
+
+
+    def enable_console_info(self) -> None:
+        self.game.udp_client.debug.enabled = True
+
+
     def start(self) -> None:
         self.ui.show_main_window()
 
@@ -93,7 +101,6 @@ class App:
             return
 
         move_uci = self.construct_move(init_row, init_col, row, col)
-        print(move_uci)
         success = self.game.try_to_make_move(move_uci)
         if success:
             self.ui.ui_chessboard.unhighlight_all()

@@ -150,7 +150,6 @@ class UIChessBoard:
 
     def mark_possible_moves(self, x_offset, y_offset, row, col) -> None:
         possible_moves = self.app.get_possible_moves(row, col)
-        print(possible_moves)
 
         for row, col in possible_moves:
             if self.app.game.player_color == chess.BLACK:
