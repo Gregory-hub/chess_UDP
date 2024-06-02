@@ -180,7 +180,7 @@ class UDPClient:
 
 
     def __start(self, ip_address: str = None, port: int = None) -> None:
-        print(f"[App starting] at {ip_address if ip_address is not None else "{Default}"}:{port if port is not None else "{Default}"}...")
+        print(f"[App starting] at {ip_address if ip_address is not None else '{Default}'}:{port if port is not None else '{Default}'}...")
         self.__initialize_socket(ip_address, port)
         print(f"[App started] at {self.ip}:{self.port}")
 
