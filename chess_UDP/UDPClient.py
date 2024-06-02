@@ -30,7 +30,7 @@ class UDPClient:
 
         self.sock = None
 
-        self.last_message_received = ""
+        self.__last_message_received = ""
         self.message_read = False
 
         self.on_connect = None
@@ -86,16 +86,18 @@ class UDPClient:
             self.sock.sendto(data.encode(), (self.opponent_ip, self.opponent_port))
 
 
-    def start_receiving(self) -> None:
+    def start_receiving(self, on_receive: callable = None) -> None:
         print("[Starting receiving incoming data]")
-        self.thread_receive = threading.Thread(target=self.__receive)
+        self.thread_receive = threading.Thread(target=self.__receive, args=[on_receive])
         self.thread_receive.start()
 
 
-    def get_last_message(self) -> None:
+    def get_last_message(self) -> str | None:
         if not self.message_read:
             self.message_read = True
-            return self.last_message_received
+            return self.__last_message_received
+        else:
+            return None
 
 
     def restart(self, ip_address: str = None, port: int = None) -> None:
@@ -145,7 +147,7 @@ class UDPClient:
             except (PermissionError, OSError):
                 port += 1
                 if port > 65535:
-                    port = 0
+                    port = 1
                 if port == self.DEFAULT_PORT:
                     raise PermissionError("No ports available")
 
@@ -172,7 +174,7 @@ class UDPClient:
             port = int(port)
         except ValueError:
             return False
-        if (port < 0 or port > 65535):
+        if (port < 1 or port > 65535):
             return False
         return True
 
@@ -190,11 +192,10 @@ class UDPClient:
             raise ValueError("Unknown or invalid ip address")
 
         if port is None:
-            port = self.DEFAULT_PORT
-        elif port < 0 or port > 65535:
+            port = self.get_valid_port(ip_address)
+        elif port < 1 or port > 65535:
             raise ValueError("Invalid port number")
 
-        port = self.get_valid_port(ip_address)
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)    # Internet, UDP
         self.sock.bind((ip_address, port))
         self.ip = ip_address
@@ -221,7 +222,7 @@ class UDPClient:
 
             message = data.decode()
             if message.startswith("/accept") and addr[0] == opponent_ip and addr[1] == opponent_port:
-                self.last_message_received = ' '.join(message.split(' ')[1:])
+                self.__last_message_received = ' '.join(message.split(' ')[1:])
                 self.__connect(opponent_ip, opponent_port)
                 break
 
@@ -280,7 +281,7 @@ class UDPClient:
         print("[Stopping thread] __wait_for_opponent")
 
 
-    def __receive(self) -> None:
+    def __receive(self, on_receive: callable = None) -> None:
         # stalls the program
         print("[Starting thread] __receive")
         self.terminate_receive = False
@@ -288,10 +289,14 @@ class UDPClient:
         while not self.terminate_receive:
             try:
                 data, addr = self.sock.recvfrom(self.BUFFER_SIZE)
+                message = data.decode()
+                self.__last_message_received = message
+                self.message_read = False
+                print(f"[Message received] '{message}'")
+                if on_receive:
+                    on_receive(message, addr[0], addr[1])
             except BlockingIOError:
                 continue
-
-            self.last_message_received = data.decode()
 
         self.thread_receive = None
         self.terminate_receive = False

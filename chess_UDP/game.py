@@ -6,7 +6,13 @@ from .UDPClient import UDPClient
 
 
 class Game:
-    def __init__(self, on_connect: callable, on_opponent_connect: callable, on_receive_start_command: callable):
+    def __init__(
+            self,
+            on_connect: callable,
+            on_opponent_connect: callable,
+            on_receive_start_command: callable,
+            on_receive_move_command: callable
+        ):
         self.udp_client = UDPClient()
         self.chessboard = None
         self.player_color = None
@@ -15,6 +21,7 @@ class Game:
         self.on_connect = on_connect
         self.on_opponent_connect = on_opponent_connect
         self.on_receive_start_command = on_receive_start_command
+        self.on_receive_move_command = on_receive_move_command
 
 
     def start_udp_client(self, ip: str, port: int) -> None:
@@ -48,53 +55,52 @@ class Game:
         if self.chessboard is None:
             raise ReferenceError("Chessboard is not created")
 
-        self.udp_client.start_receiving()
+        self.udp_client.start_receiving(self.on_receive_move_command)
         self.game_is_played = True
 
-        # while self.game_is_played:
-        #     if self.chessboard.turn != self.player_color and not self.udp_client.message_read:
-        #         message = self.udp_client.get_last_message()
-        #         if self.__is_valid_uci(message):
-        #             if self.chessboard.is_legal(chess.Move.from_uci(message)):
-        #                 self.chessboard.push_uci(message)
-        #                 print(f"\nOpponents move: {message}")
-        #                 print(self.chessboard)
 
-        #     elif self.chessboard.turn == self.player_color:
-        #         print("Make move (uci format, examples: b1c3, e7e8q)")
-        #         input_str = ""
-        #         ok_move = False
-        #         while not ok_move:
-        #             try:
-        #                 input_str = input(">> ")
-        #             except KeyboardInterrupt:
-        #                 print()
-        #                 self.udp_client.shut_down()
-        #                 exit(0)
-        #             ok_move = True
-        #             if not self.__is_valid_uci(input_str):
-        #                 print("Invalid uci. Try again")
-        #                 ok_move = False
+    def try_to_make_move(self, move_uci: str) -> bool:
+        success = False
+        if not self.is_current_players_turn():
+            success = False
+        elif not self.is_valid_uci(move_uci):
+            success = False
+        elif self.chessboard.is_legal(chess.Move.from_uci(move_uci)):
+            self.udp_client.send_to_opponent(move_uci)
+            self.chessboard.push_uci(move_uci)
+            if self.game_ended():
+                self.game_is_played = False
+            success = True
 
-        #             elif not self.chessboard.is_legal(chess.Move.from_uci(input_str)):
-        #                 print("Illegal move. Try again")
-        #                 ok_move = False
-
-        #         self.udp_client.send_to_opponent(input_str)
-        #         self.chessboard.push_uci(input_str)
-        #         print(f"\nYour move: {input_str}")
-        #         print(self.chessboard)
-        #         print("Waiting for opponent to move")
-
-        #     if (self.__game_ended()):
-        #         self.game_is_played = False
-        #         print("Termination:", self.chessboard.outcome().termination)
-        #         print("Winner:", self.chessboard.outcome().winner)
+        return success
 
 
-    def __is_valid_uci(self, move: str) -> bool:
+    def process_opponents_move(self, move_uci: str) -> bool:
+        success = False
+        if self.is_current_players_turn():
+            success = False
+        elif not self.is_valid_uci(move_uci):
+            success = False
+        elif self.chessboard.is_legal(chess.Move.from_uci(move_uci)):
+            self.chessboard.push_uci(move_uci)
+            if self.game_ended():
+                self.game_is_played = False
+            success = True
+
+        return success
+
+
+    def is_current_players_turn(self) -> bool:
+        return self.chessboard.turn == self.player_color
+
+
+    def is_valid_uci(self, move: str) -> bool:
         return re.match('[a-h][0-9][a-h][0-9]q?', move)
 
 
-    def __game_ended(self) -> bool:
+    def game_ended(self) -> bool:
         return self.chessboard.outcome() is not None
+
+    
+    def get_game_result(self) -> chess.Outcome | None:
+        return self.chessboard.outcome()

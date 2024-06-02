@@ -1,4 +1,5 @@
 import tkinter as tk
+from tkinter import messagebox
 
 import chess
 
@@ -6,7 +7,7 @@ from .UIChessBoard import UIChessBoard
 
 
 class UI:
-    def __init__(self, app):
+    def __init__(self, app, on_move: callable):
         self.app = app
 
         self.widgets = []
@@ -21,6 +22,8 @@ class UI:
         self.opponent_label_text = None
         self.start_button = None
         self.opponent_address_label_text = None
+
+        self.on_move = on_move
 
 
     def show_main_window(self) -> None:
@@ -81,7 +84,7 @@ class UI:
 
         color_frame.pack(expand=True)
 
-        create_game_button = tk.Button(self.main_window, text="Create Game", command=lambda: self.app.create_game(color_value, ip_value.get(), int(entry_port.get())))
+        create_game_button = tk.Button(self.main_window, text="Create Game", command=lambda: self.app.create_game(color_value.get(), ip_value.get(), entry_port.get()))
         self.widgets.append(create_game_button)
         create_game_button.pack(expand=True)
 
@@ -95,9 +98,13 @@ class UI:
 
         top_text_frame = tk.Frame(self.main_window)
         self.widgets.append(top_text_frame)
-        label = tk.Label(top_text_frame, text=f"Game is running on {ip}:{port}", font=self.FONT)
-        self.widgets.append(label)
-        label.pack()
+        game_address_text = tk.Text(top_text_frame, height=1, borderwidth=0, font=self.FONT)
+        self.widgets.append(game_address_text)
+        game_address_text.insert(1.0, f"Game is running on {ip}:{port}")
+        game_address_text.configure(state="disabled")
+        game_address_text.tag_configure("center", justify='center')
+        game_address_text.tag_add("center", 1.0, "end")
+        game_address_text.pack()
         label = tk.Label(top_text_frame, text=f"You play as {'White' if color else 'Black'}", font=self.FONT)
         self.widgets.append(label)
         label.pack()
@@ -146,10 +153,11 @@ class UI:
             self.main_window, 
             self.app,
             padding=30, 
-            color=player_color
+            color=player_color,
+            on_move=self.on_move
         )
         self.ui_chessboard.update_position(fen)
-        self.ui_chessboard.draw_pieces()
+        self.ui_chessboard.refresh_board()
 
 
     def show_connect_window(self) -> None:
@@ -200,11 +208,10 @@ class UI:
         self.widgets.append(frame_opponent_port)
         frame_opponent_port.pack(expand=True, side="right")
         entry_opponent_port = tk.Entry(frame_opponent_port, width=5)
-        entry_opponent_port.insert(0, self.app.game.udp_client.DEFAULT_PORT)
         self.widgets.append(entry_opponent_port)
         entry_opponent_port.pack(expand=True)
 
-        connect_command = lambda: self.app.connect(ip_value.get(), int(entry_port.get()), entry_opponent_ip.get(), int(entry_opponent_port.get()))
+        connect_command = lambda: self.app.connect(ip_value.get(), entry_port.get(), entry_opponent_ip.get(), entry_opponent_port.get())
         connect_button = tk.Button(self.main_window, text="Connect", command=connect_command)
         self.widgets.append(connect_button)
         connect_button.pack(expand=True, anchor="center") 
@@ -246,6 +253,10 @@ class UI:
         label.pack()
 
         self.add_bottom_frame()
+
+
+    def show_game_result_popup(self, message: str) -> None:
+        messagebox.showinfo("Game ended", message)
 
 
     def add_top_frame(self) -> None:
