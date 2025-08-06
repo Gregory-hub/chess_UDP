@@ -1,7 +1,7 @@
 # A chess game for playing on local network <br/>
 Uses UDP protocol for data transfer between players <br/>
 <br/>
-### Game after players are connected: <br/>
+## Game after players are connected: <br/>
 <div align="center">
   <img width="400" height="451" alt="image" src="https://github.com/user-attachments/assets/bef0dd6d-9707-4b96-8514-0229dbbe8c5f" />
 </div><br/>
@@ -24,6 +24,7 @@ Checkmate: <br/>
   <img width="398" height="446" alt="image" src="https://github.com/user-attachments/assets/ff01592f-d194-4cfb-90ad-5f94550664cb" />
 </div><br/>
 
+## Connection: <br/>
 ### Main window: <br/>
 
 <div align="center">
