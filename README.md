@@ -32,7 +32,7 @@ Checkmate: <br/>
 </div><br/>
 
 ### Player 1 (host) <br/>
-Game creation (you can choose ip address from list of available on your PC): <br/>
+Game creation (you can choose ip address from list of available ips on your PC): <br/>
 <div align="center">
   <img width="379" height="428" alt="image" src="https://github.com/user-attachments/assets/981fa01d-7ef4-4acf-a222-40f356cee6e9" />
 </div><br/>
@@ -46,7 +46,7 @@ Connection window: <br/>
 <div align="center">
   <img width="386" height="433" alt="image" src="https://github.com/user-attachments/assets/026e6b84-0c01-4013-b020-c85cdbbd561b" />
 </div><br/>
-Waiting for a game start: <br/>
+Waiting for opponent to start a game: <br/>
 <div align="center">
   <img width="381" height="429" alt="image" src="https://github.com/user-attachments/assets/83612c86-62ef-42c4-91eb-95c8b5981618" />
 </div><br/>
