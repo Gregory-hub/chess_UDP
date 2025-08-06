@@ -24,12 +24,14 @@ Checkmate: <br/>
   <img width="398" height="446" alt="image" src="https://github.com/user-attachments/assets/ff01592f-d194-4cfb-90ad-5f94550664cb" />
 <div/><br/>
 
-###### Main window: <br/>
+<div align="left">
+  ### Main window: <br/>
+<div/>
 <div align="center">
   <img width="448" align="center" height="468" alt="image" src="https://github.com/user-attachments/assets/231566ff-1901-455a-967d-980faefd181a" />
 <div/><br/>
 
-###### Player 1 (host) <br/>
+### Player 1 (host) <br/>
 Game creation (you can choose ip address from list of available on your PC): <br/>
 <div align="center">
   <img width="379" height="428" alt="image" src="https://github.com/user-attachments/assets/981fa01d-7ef4-4acf-a222-40f356cee6e9" />
@@ -39,7 +41,7 @@ Waiting for opponent: <br/>
   <img width="428" height="463" alt="image" src="https://github.com/user-attachments/assets/c26eaa92-f045-4b28-8761-c8cbdae5f24e" />
 <div/><br/>
   
-###### Player 2 <br/>
+### Player 2 <br/>
 Connection window: <br/>
 <div align="center">
   <img width="386" height="433" alt="image" src="https://github.com/user-attachments/assets/026e6b84-0c01-4013-b020-c85cdbbd561b" />
